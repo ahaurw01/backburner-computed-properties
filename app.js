@@ -19,6 +19,11 @@ var ComputeModel = function (hash) {
     }
   }.bind(this));
 };
+function log(msg) {
+  if (ComputeModel.LOGGING) {
+    console.info(msg);
+  }
+}
 ComputeModel.prototype = {
   backburner: null,
 
@@ -53,7 +58,7 @@ ComputeModel.prototype = {
   },
 
   scheduleSync: function (key) {
-    console.info('Scheduling sync: ' + key);
+    log('Scheduling sync: ' + key);
     this.backburner.deferOnce('sync', this, 'scheduleRecompute', key); // Don't need to be notified multiple times for this one key
   },
 
@@ -61,7 +66,7 @@ ComputeModel.prototype = {
     this.computedProperties.forEach(function (cp) {
       // Does this guy depend on `changedKey`? If so, recompute him.
       if (cp.dependentProperties.indexOf(changedKey) >= 0) {
-        console.info('Scheduling recompute: ' + cp.key);
+        log('Scheduling recompute: ' + cp.key);
         this.backburner.deferOnce('recompute', this, 'recompute', cp);
       }
     }.bind(this));
@@ -72,7 +77,7 @@ ComputeModel.prototype = {
     var injectedArgs = computedProperty.dependentProperties.map(function (dp) {
       return this._values[dp];
     }.bind(this));
-    console.info('Recomputing: ' + computedProperty.key);
+    log('Recomputing: ' + computedProperty.key);
     this._values[computedProperty.key] = computedProperty.compute.apply(this, injectedArgs);
     // Maybe somebody else depends on this computed property!
     this.backburner.setTimeout(this, 'scheduleSync', computedProperty.key, 1);
@@ -87,6 +92,8 @@ Function.prototype.computed = function () {
   var dependentProperties = Array.prototype.slice.call(arguments);
   return new ComputeModel.ComputedProperty(this, dependentProperties);      
 };
+
+ComputeModel.LOGGING = true;
 
 var cm = new ComputeModel({
   firstName: 'Aaron',
