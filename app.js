@@ -4,7 +4,6 @@ var ComputeModel = function (hash) {
   this.backburner = new Backburner(['beforeRecompute', 'recompute', 'afterRecompute']);
   this._values = {}; // Hash of stored property values
   this.computedProperties = []; // List of computed properties to track
-  this.changeHandlers = []; // List of change handlers to fire on value changes
   this.backburner.run(function () {
     // Do this all inside of run() so we know baseline values are set before computation
     var key, value;
@@ -49,10 +48,12 @@ ComputeModel.prototype = {
   },
 
   registerChangeHandler: function (handler) {
+    this.changeHandlers = this.changeHandlers || [];
     this.changeHandlers.push(handler);
   },
 
   unregisterChangeHandler: function (handler) {
+    this.changeHandlers = this.changeHandlers || [];
     var index = this.changeHandlers.indexOf(handler);
     if (index >= 0) {
       this.changeHandlers.splice(index, 1);
@@ -110,7 +111,11 @@ ComputeModel.prototype = {
    */
   scheduleNotify: function (key) {
     log('Scheduling notify: ' + key);
-    this.backburner.deferOnce('afterRecompute', this, 'notify', key);
+    this._changedProperties = this._changedProperties || [];
+    if (this._changedProperties.indexOf(key) === -1) {
+      this._changedProperties.push(key);
+    }
+    this.backburner.deferOnce('afterRecompute', this, 'notify');
   },
 
   /**
@@ -127,19 +132,23 @@ ComputeModel.prototype = {
     this._values[computedProperty.key] = computedProperty.compute.apply(this, injectedArgs);
     this.scheduleNotify(computedProperty.key);
     // Maybe somebody else depends on this computed property!
-    this.backburner.setTimeout(this, 'scheduleSync', computedProperty.key, 1);
+    this.scheduleSync(computedProperty.key);
   },
 
   /**
-   * Notify external parties of a value change
+   * Notify external parties of value changes.
+   * Reads the values in the _changedProperties array set by `scheduleNotify`
    * @private
-   * @param {string} key - name of the property that has changed
    */
-  notify: function (key) {
-    var newValue = this._values[key];
+  notify: function () {
+    if (!this.changeHandlers) {
+      return;
+    }
+    var changedProperties = this._changedProperties;
     this.changeHandlers.forEach(function (handler) {
-      handler(key, newValue);
+      handler(changedProperties.slice());
     });
+    this._changedProperties = [];
   }
 };
 
@@ -160,7 +169,7 @@ Function.prototype.computed = function () {
   return new ComputeModel.ComputedProperty(this, dependentProperties);      
 };
 
-// ComputeModel.LOGGING = true;
+ComputeModel.LOGGING = false;
 
 $(function () {
   var model = new ComputeModel({
