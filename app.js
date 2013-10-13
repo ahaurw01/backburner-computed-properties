@@ -3,7 +3,6 @@ var Backburner = window.backburner.Backburner;
 var ComputeModel = function (hash) {
   this.backburner = new Backburner(['beforeRecompute', 'recompute', 'afterRecompute']);
   this._values = {}; // Hash of stored property values
-  this.computedProperties = []; // List of computed properties to track
   this.backburner.run(function () {
     // Do this all inside of run() so we know baseline values are set before computation
     var key, value;
@@ -47,11 +46,19 @@ ComputeModel.prototype = {
     this.scheduleNotify(key);
   },
 
+  /**
+   * Save the given callback to call whenver values of this model change.
+   * @param {function} handler
+   */
   registerChangeHandler: function (handler) {
     this.changeHandlers = this.changeHandlers || [];
     this.changeHandlers.push(handler);
   },
 
+  /**
+   * Forget about calling the given callback when changes occur
+   * @param {function} handler
+   */
   unregisterChangeHandler: function (handler) {
     this.changeHandlers = this.changeHandlers || [];
     var index = this.changeHandlers.indexOf(handler);
@@ -68,7 +75,8 @@ ComputeModel.prototype = {
    */
   createComputedProperty: function (key, computedProperty) {
     computedProperty.key = key;
-    this.computedProperties.push(computedProperty);
+    this._computedProperties = this._computedProperties || [];
+    this._computedProperties.push(computedProperty);
     // Kick off eventual computation
     var backburner = this.backburner,
         self = this;
@@ -95,13 +103,15 @@ ComputeModel.prototype = {
    * @param {string} key - name of the property that will be recomputed
    */
   scheduleRecompute: function (key) {
-    this.computedProperties.forEach(function (cp) {
-      // Does this guy depend on `key`? If so, recompute him.
-      if (cp.dependentProperties.indexOf(key) >= 0) {
-        log('Scheduling recompute: ' + cp.key);
-        this.backburner.deferOnce('recompute', this, 'recompute', cp);
-      }
-    }.bind(this));
+    if (this._computedProperties) {
+      this._computedProperties.forEach(function (cp) {
+        // Does this guy depend on `key`? If so, recompute him.
+        if (cp.dependentProperties.indexOf(key) >= 0) {
+          log('Scheduling recompute: ' + cp.key);
+          this.backburner.deferOnce('recompute', this, 'recompute', cp);
+        }
+      }.bind(this));
+    }
   },
 
   /**
