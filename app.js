@@ -15,8 +15,7 @@ $(function () {
 
   var template = Handlebars.compile($('#my-template').html());
   function render() {
-    console.log('rendering!');
-    $('body').html(template({
+    $('#content').html(template({
       fullName: model.get('fullName'),
       fullerName: model.get('fullerName')
     }));
@@ -24,5 +23,11 @@ $(function () {
   model.registerChangeHandler(render);
   render();
 
-  window.model = model;
+  window.firstNameHandler = function (event) {
+    model.set('firstName', $('#firstName').val());
+  };
+
+  window.lastNameHandler = function (event) {
+    model.set('lastName', $('#lastName').val());
+  };
 });

@@ -10,8 +10,14 @@
 <body>
   <script type="text/x-handlebars-template" id="my-template">
     <div>
-      Hi! My name is {{fullName}}. Most address me as {{fullerName}}.
+      <p>Hi! My name is {{fullName}}.</p>
+      <p>Most address me as {{fullerName}}.</p>
     </div>
   </script>
+
+  <input id="firstName" type="text" onkeyup="firstNameHandler()" value="Aaron"></input>
+  <input id="lastName" type="text" onkeyup="lastNameHandler()" value="Haurwitz"></input>
+
+  <div id="content"></div>
 </body>
 </html>
