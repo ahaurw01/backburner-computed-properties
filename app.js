@@ -47,12 +47,13 @@ ComputeModel.prototype = {
         self = this;
     backburner.run(function () {
       dependentProperties.forEach(function (dp) {
-        backburner.deferOnce('sync', self, 'scheduleRecompute', dp);
+        self.scheduleSync(dp);
       });
     });
   },
 
   scheduleSync: function (key) {
+    console.info('Scheduling sync: ' + key);
     this.backburner.deferOnce('sync', this, 'scheduleRecompute', key); // Don't need to be notified multiple times for this one key
   },
 
@@ -60,18 +61,21 @@ ComputeModel.prototype = {
     this.computedProperties.forEach(function (cp) {
       // Does this guy depend on `changedKey`? If so, recompute him.
       if (cp.dependentProperties.indexOf(changedKey) >= 0) {
+        console.info('Scheduling recompute: ' + cp.key);
         this.backburner.deferOnce('recompute', this, 'recompute', cp);
       }
     }.bind(this));
   },
 
   recompute: function (computedProperty) {
+    // Retrieve the current values for the dependent keys
     var injectedArgs = computedProperty.dependentProperties.map(function (dp) {
       return this._values[dp];
     }.bind(this));
+    console.info('Recomputing: ' + computedProperty.key);
     this._values[computedProperty.key] = computedProperty.compute.apply(this, injectedArgs);
     // Maybe somebody else depends on this computed property!
-    this.backburner.setTimeout(this, 'scheduleSync', 1);
+    this.backburner.setTimeout(this, 'scheduleSync', computedProperty.key, 1);
   }
 };
 
