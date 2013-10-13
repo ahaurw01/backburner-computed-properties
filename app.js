@@ -2,6 +2,9 @@ var Backburner = window.backburner.Backburner;
 
 var ComputeModel = function (hash) {
   this.backburner = new Backburner(['beforeRecompute', 'recompute', 'afterRecompute']);
+  this._values = {}; // Hash of stored property values
+  this.computedProperties = []; // List of computed properties to track
+  this.changeHandlers = []; // List of change handlers to fire on value changes
   this.backburner.run(function () {
     // Do this all inside of run() so we know baseline values are set before computation
     var key, value;
@@ -25,12 +28,6 @@ function log(msg) {
   }
 }
 ComputeModel.prototype = {
-  backburner: null,
-
-  _values: {},
-
-  computedProperties: [],
-
   /**
    * Retrieve the stored value of the given property
    * @param {string} key - name of the property
@@ -48,6 +45,18 @@ ComputeModel.prototype = {
     // Set the value immediately, defer the computation of related computed properties
     this._values[key] = value;
     this.scheduleSync(key);
+    this.scheduleNotify(key);
+  },
+
+  registerChangeHandler: function (handler) {
+    this.changeHandlers.push(handler);
+  },
+
+  unregisterChangeHandler: function (handler) {
+    var index = this.changeHandlers.indexOf(handler);
+    if (index >= 0) {
+      this.changeHandlers.splice(index, 1);
+    }
   },
 
   /**
@@ -82,16 +91,26 @@ ComputeModel.prototype = {
   /**
    * Schedule the eventual computation of a property
    * @private
-   * @param {string} changedKey - name of the property that will be recomputed
+   * @param {string} key - name of the property that will be recomputed
    */
-  scheduleRecompute: function (changedKey) {
+  scheduleRecompute: function (key) {
     this.computedProperties.forEach(function (cp) {
-      // Does this guy depend on `changedKey`? If so, recompute him.
-      if (cp.dependentProperties.indexOf(changedKey) >= 0) {
+      // Does this guy depend on `key`? If so, recompute him.
+      if (cp.dependentProperties.indexOf(key) >= 0) {
         log('Scheduling recompute: ' + cp.key);
         this.backburner.deferOnce('recompute', this, 'recompute', cp);
       }
     }.bind(this));
+  },
+
+  /**
+   * Schedule the eventual notification of value changes
+   * @private
+   * @param {string} key - name of the property that has changed
+   */
+  scheduleNotify: function (key) {
+    log('Scheduling notify: ' + key);
+    this.backburner.deferOnce('afterRecompute', this, 'notify', key);
   },
 
   /**
@@ -106,8 +125,21 @@ ComputeModel.prototype = {
     }.bind(this));
     log('Recomputing: ' + computedProperty.key);
     this._values[computedProperty.key] = computedProperty.compute.apply(this, injectedArgs);
+    this.scheduleNotify(computedProperty.key);
     // Maybe somebody else depends on this computed property!
     this.backburner.setTimeout(this, 'scheduleSync', computedProperty.key, 1);
+  },
+
+  /**
+   * Notify external parties of a value change
+   * @private
+   * @param {string} key - name of the property that has changed
+   */
+  notify: function (key) {
+    var newValue = this._values[key];
+    this.changeHandlers.forEach(function (handler) {
+      handler(key, newValue);
+    });
   }
 };
 
@@ -128,18 +160,33 @@ Function.prototype.computed = function () {
   return new ComputeModel.ComputedProperty(this, dependentProperties);      
 };
 
-ComputeModel.LOGGING = true;
+// ComputeModel.LOGGING = true;
 
-var cm = new ComputeModel({
-  firstName: 'Aaron',
+$(function () {
+  var model = new ComputeModel({
+    firstName: 'Aaron',
 
-  lastName: 'Haurwitz',
+    lastName: 'Haurwitz',
 
-  fullName: function (firstName, lastName) {
-    return firstName + ' ' + lastName;
-  }.computed('firstName', 'lastName'),
+    fullName: function (firstName, lastName) {
+      return firstName + ' ' + lastName;
+    }.computed('firstName', 'lastName'),
 
-  fullerName: function (fullName) {
-    return 'The honorable ' + fullName;
-  }.computed('fullName')
+    fullerName: function (fullName) {
+      return 'The Honorable ' + fullName;
+    }.computed('fullName')
+  });
+
+  var template = Handlebars.compile($('#my-template').html());
+  function render() {
+    console.log('rendering!');
+    $('body').html(template({
+      fullName: model.get('fullName'),
+      fullerName: model.get('fullerName')
+    }));
+  }
+  model.registerChangeHandler(render);
+  render();
+
+  window.model = model;
 });

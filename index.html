@@ -1,10 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/handlebars.js/1.0.0/handlebars.min.js"></script>
   <script src="backburner.js"></script>
   <script src="app.js"></script>
 </head>
 <body>
-  
+  <script type="text/x-handlebars-template" id="my-template">
+    <div>
+      Hi! My name is {{fullName}}. Most address me as {{fullerName}}.
+    </div>
+  </script>
 </body>
 </html>
