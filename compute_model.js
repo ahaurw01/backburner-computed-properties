@@ -7,24 +7,23 @@
    * @param {object} hash - hash of concrete and computed properties
    */
   var ComputeModel = function (hash) {
-    this.backburner = new Backburner(['beforeRecompute', 'recompute', 'afterRecompute']);
+    this.backburner = new Backburner(['recompute', 'afterRecompute']);
     this._values = {}; // Hash of stored property values
-    this.backburner.run(function () {
-      // Do this all inside of run() so we know baseline values are set before computation
-      var key, value;
-      for (key in hash) {
-        if (hash.hasOwnProperty(key)) {
-          value = hash[key];
-          if (value instanceof ComputeModel.ComputedProperty) {
-            // Create this computed property
-            this.createComputedProperty(key, value);
-          } else {
-            // Plain old-fashioned key/value pair
-            this._values[key] = hash[key];
-          }
+    var key, value;
+    for (key in hash) {
+      if (hash.hasOwnProperty(key)) {
+        value = hash[key];
+        if (value instanceof ComputeModel.ComputedProperty) {
+          // Create this computed property
+          // This method defers actions, so it implicitly spins up a run loop instance
+          this.createComputedProperty(key, value);
+        } else {
+          // Plain old-fashioned key/value pair
+          log('Initial concrete set: ' + key);
+          this._values[key] = hash[key];
         }
       }
-    }.bind(this));
+    }
   };
 
   /**
@@ -53,7 +52,7 @@
     set: function (key, value) {
       // Set the value immediately, defer the computation of related computed properties
       this._values[key] = value;
-      this.scheduleSync(key);
+      this.scheduleRecompute(key);
       this.scheduleNotify(key);
     },
 
@@ -91,35 +90,27 @@
       // Kick off eventual computation
       var backburner = this.backburner,
           self = this;
-      backburner.run(function () {
-        computedProperty.dependentProperties.forEach(function (dp) {
-          self.scheduleSync(dp);
-        });
+      computedProperty.dependentProperties.forEach(function (dp) {
+        self.scheduleRecompute(dp);
       });
-    },
-
-    /**
-     * Schedule the eventual change notification of this property
-     * @private
-     * @param {string} key - name of the property that is changing
-     */
-    scheduleSync: function (key) {
-      log('Scheduling beforeRecompute: ' + key);
-      this.backburner.deferOnce('beforeRecompute', this, 'scheduleRecompute', key); // Don't need to be notified multiple times for this one key
     },
 
     /**
      * Schedule the eventual computation of a property
      * @private
-     * @param {string} key - name of the property that will be recomputed
+     * @param {string} changedKey - name of the property that has changed
      */
-    scheduleRecompute: function (key) {
+    scheduleRecompute: function (changedKey) {
       if (this._computedProperties) {
+        this._propertiesToRecompute = this._propertiesToRecompute || [];
         this._computedProperties.forEach(function (cp) {
-          // Does this guy depend on `key`? If so, recompute him.
-          if (cp.dependentProperties.indexOf(key) >= 0) {
+          // Does this guy depend on `changedKey`? If so, recompute him.
+          if (cp.dependentProperties.indexOf(changedKey) >= 0) {
             log('Scheduling recompute: ' + cp.key);
-            this.backburner.deferOnce('recompute', this, 'recompute', cp);
+            if (this._propertiesToRecompute.indexOf(cp) === -1) {
+              this._propertiesToRecompute.push(cp);
+            }
+            this.backburner.deferOnce('recompute', this, 'recompute');
           }
         }.bind(this));
       }
@@ -140,20 +131,24 @@
     },
 
     /**
-     * Recompute the value for the given property
+     * Recompute the values of all out-of-date computed properties
      * @private
-     * @param {ComputeModel.ComputedProperty} computedProperty
      */
-    recompute: function (computedProperty) {
-      // Retrieve the current values for the dependent keys
-      var injectedArgs = computedProperty.dependentProperties.map(function (dp) {
-        return this._values[dp];
-      }.bind(this));
-      log('Recomputing: ' + computedProperty.key);
-      this._values[computedProperty.key] = computedProperty.compute.apply(this, injectedArgs);
-      this.scheduleNotify(computedProperty.key);
-      // Maybe somebody else depends on this computed property!
-      this.scheduleSync(computedProperty.key);
+    recompute: function () {
+      var computedProperty;
+      // Iterate over all out-of-date properties
+      while (this._propertiesToRecompute.length) {
+        computedProperty = this._propertiesToRecompute.pop();
+        // Retrieve the current values for the dependent keys
+        var injectedArgs = computedProperty.dependentProperties.map(function (dp) {
+          return this._values[dp];
+        }.bind(this));
+        log('Recomputing: ' + computedProperty.key);
+        this._values[computedProperty.key] = computedProperty.compute.apply(this, injectedArgs);
+        this.scheduleNotify(computedProperty.key);
+        // Maybe somebody else depends on this computed property!
+        this.scheduleRecompute(computedProperty.key);
+      }
     },
 
     /**
@@ -165,6 +160,7 @@
       if (!this.changeHandlers) {
         return;
       }
+      log('Notifying: ' + this._changedProperties.join(', '));
       var changedProperties = this._changedProperties;
       this.changeHandlers.forEach(function (handler) {
         handler(changedProperties.slice());
@@ -190,7 +186,7 @@
     return new ComputeModel.ComputedProperty(this, dependentProperties);      
   };
 
-  ComputeModel.LOGGING = false;
+  ComputeModel.LOGGING = true;
 
   global.ComputeModel = ComputeModel;
 })(jQuery, backburner, this);

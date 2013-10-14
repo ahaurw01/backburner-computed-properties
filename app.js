@@ -1,16 +1,15 @@
 $(function () {
   var model = new ComputeModel({
-    firstName: 'Aaron',
-
-    lastName: 'Haurwitz',
-
     fullName: function (firstName, lastName) {
       return firstName + ' ' + lastName;
     }.computed('firstName', 'lastName'),
 
     fullerName: function (fullName) {
       return 'The Honorable ' + fullName;
-    }.computed('fullName')
+    }.computed('fullName'),
+    firstName: 'Aaron',
+
+    lastName: 'Haurwitz'
   });
 
   var template = Handlebars.compile($('#my-template').html());
