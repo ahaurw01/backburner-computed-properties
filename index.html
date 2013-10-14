@@ -9,15 +9,37 @@
 </head>
 <body>
   <script type="text/x-handlebars-template" id="my-template">
-    <div>
-      <p>Hi! My name is {{fullName}}.</p>
-      <p>Most address me as {{fullerName}}.</p>
+    <div> 
+        <p>My cat's name is {{name}}.</p>
+        <p>He's known to other cats as {{description}}.</p>
     </div>
-  </script>
-
-  <input id="firstName" type="text" onkeyup="firstNameHandler()" value="Aaron"></input>
-  <input id="lastName" type="text" onkeyup="lastNameHandler()" value="Haurwitz"></input>
-
-  <div id="content"></div>
+</script>
+<ul>
+    <li>
+        <label for="name">Name</label>
+        <input id="name" type="text" value="ToobSox"></input>
+    </li>
+    <li>
+        <label for="weight">Weight</label>
+        <input id="weight" type="text" value="12"></input>
+    </li>
+    <li>
+        <input id="not-sassy" type="radio" name="sass" value="notSassy" checked="true"></input>
+        <label for="not-sassy">Not Sassy</label>
+    </li>
+    <li>
+        <input id="pretty-sassy" type="radio" name="sass" value="prettySassy"></input>
+        <label for="pretty-sassy">Pretty Sassy</label>
+    </li>
+    <li>
+        <input id="quite-sassy" type="radio" name="sass" value="quiteSassy"></input>
+        <label for="quite-sassy">Quite Sassy</label>
+    </li>
+    <li>
+        <input id="ludicrously-sassy" type="radio" name="sass" value="ludicrouslySassy"></input>
+        <label for="ludicrously-sassy">Ludicrously Sassy</label>
+    </li>
+</ul>
+<div id="content"></div>
 </body>
 </html>

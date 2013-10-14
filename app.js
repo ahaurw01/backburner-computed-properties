@@ -1,32 +1,39 @@
 $(function () {
-  var model = new ComputeModel({
-    fullName: function (firstName, lastName) {
-      return firstName + ' ' + lastName;
-    }.computed('firstName', 'lastName'),
+  var kitty = new ComputeModel({
+    name: 'ToobSox',
+    weight: 12,
+    sassLevel: 'notSassy',
 
-    fullerName: function (fullName) {
-      return 'The Honorable ' + fullName;
-    }.computed('fullName'),
-    firstName: 'Aaron',
+    isFatAndSassy: function (weight, sassLevel) {
+      return weight > 14 && ['quiteSassy', 'ludicrouslySassy'].indexOf(sassLevel) >= 0;
+    }.computed('weight', 'sassLevel'),
 
-    lastName: 'Haurwitz'
+    description: function (name, isFatAndSassy) {
+      return name + (isFatAndSassy ? ', Jedi Cat' : ', Padawan Learner Kitten');
+    }.computed('name', 'isFatAndSassy')
   });
 
   var template = Handlebars.compile($('#my-template').html());
+
   function render() {
     $('#content').html(template({
-      fullName: model.get('fullName'),
-      fullerName: model.get('fullerName')
+      name: kitty.get('name'),
+      description: kitty.get('description')
     }));
   }
-  model.registerChangeHandler(render);
+  kitty.registerChangeHandler(render);
   render();
 
-  window.firstNameHandler = function (event) {
-    model.set('firstName', $('#firstName').val());
-  };
+  // Set up input handlers
+  $('#name').keyup(function (event) {
+    kitty.set('name', $(event.target).val());
+  });
 
-  window.lastNameHandler = function (event) {
-    model.set('lastName', $('#lastName').val());
-  };
+  $('#weight').keyup(function (event) {
+    kitty.set('weight', +$(event.target).val());
+  });
+
+  $('input[type="radio"]').click(function (event) {
+    kitty.set('sassLevel', $(event.target).val());
+  });
 });
