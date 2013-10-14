@@ -10,20 +10,23 @@
     this.backburner = new Backburner(['recompute', 'afterRecompute']);
     this._values = {}; // Hash of stored property values
     var key, value;
-    for (key in hash) {
-      if (hash.hasOwnProperty(key)) {
-        value = hash[key];
-        if (value instanceof ComputeModel.ComputedProperty) {
-          // Create this computed property
-          // This method defers actions, so it implicitly spins up a run loop instance
-          this.createComputedProperty(key, value);
-        } else {
-          // Plain old-fashioned key/value pair
-          log('Initial concrete set: ' + key);
-          this._values[key] = hash[key];
+    // Set up the computed properties in a call to run() so that we know
+    // our deferred actions will be executed before moving on.
+    this.backburner.run(function () {
+      for (key in hash) {
+        if (hash.hasOwnProperty(key)) {
+          value = hash[key];
+          if (value instanceof ComputeModel.ComputedProperty) {
+            // Create this computed property
+            this.createComputedProperty(key, value);
+          } else {
+            // Plain old-fashioned key/value pair
+            log('Initial concrete set: ' + key);
+            this._values[key] = hash[key];
+          }
         }
       }
-    }
+    }.bind(this));
   };
 
   /**
@@ -52,8 +55,10 @@
     set: function (key, value) {
       // Set the value immediately, defer the computation of related computed properties
       this._values[key] = value;
-      this.scheduleRecompute(key);
-      this.scheduleNotify(key);
+      this.backburner.run(function () {
+        this.scheduleRecompute(key);
+        this.scheduleNotify(key);
+      }.bind(this));
     },
 
     /**
