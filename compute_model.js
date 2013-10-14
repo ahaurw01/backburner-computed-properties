@@ -1,6 +1,11 @@
 (function ($, backburner, global) {
   var Backburner = backburner.Backburner;
 
+  /**
+   * ComputeModel constructor
+   * @constructor
+   * @param {object} hash - hash of concrete and computed properties
+   */
   var ComputeModel = function (hash) {
     this.backburner = new Backburner(['beforeRecompute', 'recompute', 'afterRecompute']);
     this._values = {}; // Hash of stored property values
@@ -21,6 +26,11 @@
       }
     }.bind(this));
   };
+
+  /**
+   * Simple logger; set LOGGING to true to see message.
+   * @param {string} msg
+   */
   function log(msg) {
     if (ComputeModel.LOGGING) {
       console.info(msg);
